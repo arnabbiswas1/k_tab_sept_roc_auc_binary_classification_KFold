@@ -1,1 +1,0 @@
-Directory for raw data as downloaded from kaggle (after unzipping)

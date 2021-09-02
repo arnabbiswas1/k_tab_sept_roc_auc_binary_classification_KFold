@@ -6,6 +6,7 @@ import sys
 import time
 
 import numpy as np
+from numpy.core.fromnumeric import compress
 import pandas as pd
 
 import src.config.constants as constants
@@ -23,7 +24,7 @@ __all__ = [
     "save_permutation_imp_artifacts",
     "calculate_final_score",
     "create_submission_file",
-    "save_artifacts_holdout"
+    "save_artifacts_holdout",
 ]
 
 
@@ -99,7 +100,7 @@ def update_tracking(
 
     except FileNotFoundError:
         df = pd.DataFrame()
-        df["lb_score"] = 0
+        # df["lb_score"] = 0
 
     if is_integer:
         value = round(value)
@@ -111,12 +112,17 @@ def update_tracking(
     df.to_csv(csv_file)
 
 
-def save_file(logger, df, dir_name, file_name, index=True):
+def save_file(logger, df, dir_name, file_name, index=True, compression=None):
     """
     common method to save submission, off files etc.
     """
     logger.info(f"Saving {dir_name}/{file_name}")
-    df.to_csv(f"{dir_name}/{file_name}", index=index, sep=",")
+    if compression:
+        df.to_csv(
+            f"{dir_name}/{file_name}", index=index, sep=",", compression=compression
+        )
+    else:
+        df.to_csv(f"{dir_name}/{file_name}", index=index, sep=",")
 
 
 def save_artifacts_holdout(
@@ -168,7 +174,7 @@ def save_artifacts_holdout(
 
 def save_artifacts(
     logger,
-    is_test,
+    target,
     is_plot_fi,
     result_dict,
     submission_df,
@@ -186,25 +192,23 @@ def save_artifacts(
     """
     score = result_dict["avg_cv_scores"]
 
-    if is_test is False:
-        # Save submission file
-        submission_df[submission_df.columns] = result_dict["prediction"]
-        save_file(
-            logger,
-            submission_df,
-            sub_dir,
-            f"sub_{model_number}_{run_id}_{score:.5f}.csv",
-        )
+    # Save submission file
+    print(result_dict["prediction"])
+    submission_df[target] = result_dict["prediction"]
+    save_file(
+        logger,
+        submission_df,
+        sub_dir,
+        f"sub_{model_number}_{run_id}_{score:.5f}.gz",
+        compression="gzip",
+    )
 
-        # Save OOF
-        if train_index is not None:
-            oof_df = pd.DataFrame(result_dict["y_oof"], index=train_index)
-            save_file(
-                logger,
-                oof_df,
-                oof_dir,
-                f"oof_{model_number}_{run_id}_{score:.5f}.csv",
-            )
+    # Save OOF
+    if train_index is not None:
+        oof_df = pd.DataFrame(result_dict["y_oof"], index=train_index)
+        save_file(
+            logger, oof_df, oof_dir, f"oof_{model_number}_{run_id}_{score:.5f}.csv",
+        )
 
     if is_plot_fi is True:
         # Feature Importance
@@ -227,9 +231,7 @@ def save_artifacts(
         # Save the plot for best features
         best_features = result_dict["best_features"]
         viz.save_feature_importance_as_fig(
-            best_features,
-            fi_fig_dir,
-            f"fi_{model_number}_{run_id}_{score:.5f}.png",
+            best_features, fi_fig_dir, f"fi_{model_number}_{run_id}_{score:.5f}.png",
         )
 
 

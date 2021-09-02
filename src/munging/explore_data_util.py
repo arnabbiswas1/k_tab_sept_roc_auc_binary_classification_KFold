@@ -7,7 +7,8 @@ __all__ = [
     "check_duplicate",
     "count_unique_values",
     "do_value_counts",
-    "check_id",
+    "check_id_column",
+    "check_index",
     "get_feature_names",
     "check_value_counts_across_train_test",
     "get_freq_encoding_feature_names",
@@ -43,7 +44,17 @@ def do_value_counts(df, feature_name):
     )
 
 
-def check_id(df, column_name, data_set_name):
+def check_index(df, data_set_name):
+    """
+    Check if the identifier column is continous and monotonically increasing
+    """
+    print(f"Is the index monotonic : {df.index.is_monotonic}")
+    # Plot the column
+    pd.Series(df.index).plot(title=data_set_name)
+    plt.show()
+
+
+def check_id_column(df, column_name, data_set_name):
     """
     Check if the identifier column is continous and monotonically increasing
     """

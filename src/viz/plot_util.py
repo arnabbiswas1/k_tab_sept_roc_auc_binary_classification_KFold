@@ -10,8 +10,6 @@ import statsmodels.tsa.api as tsa
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.tsaplots import plot_pacf
 
-import src.munging as munging
-
 # matplotlib.style.use("dark_background")
 
 
@@ -41,7 +39,9 @@ __all__ = [
     "plot_ts_bar_groupby",
     "plot_multiple_seasonalities",
     "plot_confusion_matrix",
-    "plot_acf_pacf"
+    "plot_acf_pacf_for_feature",
+    "plot_acf_pacf_for_series",
+    "plot_null_percentage_train_test_side_by_side"
 ]
 
 
@@ -101,13 +101,6 @@ def plot_barh_train_test_side_by_side(
     kind : Type of the plot
 
     """
-    print(
-        f"Number of unique values in train: {munging.count_unique_values(df_train, feature_name)}"
-    )
-    print(
-        f"Number of unique values in test: {munging.count_unique_values(df_test, feature_name)}"
-    )
-
     fig, ((ax1, ax2)) = plt.subplots(1, 2, figsize=(15, 8))
 
     if sort_index:
@@ -165,6 +158,27 @@ def plot_barh_train_test_side_by_side(
     ax1.invert_yaxis()
     ax2.invert_yaxis()
     plt.legend()
+    plt.show()
+
+
+def plot_null_percentage_train_test_side_by_side(df_train, df_test, figsize=(20, 20)):
+    """
+    Plot histogram for a particular feature both for train and test.
+
+    kind : Type of the plot
+
+    """
+    fig, ((ax1, ax2)) = plt.subplots(1, 2, figsize=figsize)
+
+    null_train = (df_train.isna().sum().mul(100)) / len(df_train)
+    null_test = (df_test.isna().sum().mul(100)) / len(df_test)
+
+    null_train.plot(
+        kind="barh", ax=ax1, grid=True, title="Percentage of null in train",
+    )
+    null_test.plot(
+        kind="barh", ax=ax2, grid=True, title="Percentage of null in test",
+    )
     plt.show()
 
 
@@ -425,7 +439,7 @@ def plot_seasonality(
     plt.title(f"{model} {freq_type} seasonality of {feature}")
     plt.show()
 
-
+ 
 def plot_trend(
     df, feature, freq, freq_type="daily", model="additive", figsize=(20, 10)
 ):
@@ -505,13 +519,22 @@ def plot_multiple_seasonalities(df, feature_name, figsize=(20, 6)):
     periods = [24, 24 * 7, 24 * 30, 24 * 90]
 
     for name, period in zip(period_names, periods):
-        plot_seasonality(
-            df.set_index("date_time")[0 : period * 3],
-            feature=feature_name,
-            freq=period,
-            freq_type=name,
-            figsize=(20, 6),
-        )
+        if "date_time" in df.columns:
+            plot_seasonality(
+                df.set_index("date_time")[0: period * 3],
+                feature=feature_name,
+                freq=period,
+                freq_type=name,
+                figsize=figsize,
+            )
+        else:
+            plot_seasonality(
+                df[0: period * 3],
+                feature=feature_name,
+                freq=period,
+                freq_type=name,
+                figsize=figsize,
+            )
 
 
 def plot_confusion_matrix(cm_array, labels, figsize):
@@ -529,11 +552,21 @@ def plot_confusion_matrix(cm_array, labels, figsize):
     plt.show()
 
 
-def plot_acf_pacf(df, feature_name, lags=50, figsize=(10, 4)):
+def plot_acf_pacf_for_feature(df, feature_name, lags=50, figsize=(10, 4)):
     """
     Plot ACF and PACF side by side
     """
     fig, ((ax1, ax2)) = plt.subplots(1, 2, figsize=figsize)
-    plot_acf(df[feature_name], ax=ax1, title=f"ACF for {feature_name}")
-    plot_pacf(df[feature_name], ax=ax2, title=f"PACF for {feature_name}")
+    plot_acf(df[feature_name], lags=lags, ax=ax1, title=f"ACF for {feature_name}")
+    plot_pacf(df[feature_name], lags=lags, ax=ax2, title=f"PACF for {feature_name}")
+    plt.show()
+
+
+def plot_acf_pacf_for_series(ser, lags=50, title="", figsize=(10, 4)):
+    """
+    Plot ACF and PACF side by side
+    """
+    fig, ((ax1, ax2)) = plt.subplots(1, 2, figsize=figsize)
+    plot_acf(ser, ax=ax1, lags=lags, title=f"ACF for {title}")
+    plot_pacf(ser, ax=ax2, lags=lags, title=f"PACF for {title}")
     plt.show()

@@ -29,7 +29,7 @@ def read_raw_data(
         logger.info(f"Shape of test_df : {test_df.shape}")
     if sample_submission:
         sample_submission_df = pd.read_csv(
-            f"{data_dir}/sample_submission.csv", index_col=index_col_name
+            f"{data_dir}/sample_solution.csv", index_col=index_col_name
         )
         logger.info(f"Shape of sample_submission_df : {sample_submission_df.shape}")
 

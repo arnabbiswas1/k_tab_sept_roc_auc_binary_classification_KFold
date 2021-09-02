@@ -785,14 +785,13 @@ def xgb_train_validate_on_cv(
     train_Y,
     test_X,
     metric,
-    num_class: int,
     kf,
     features,
     params={},
     n_estimators=1000,
     early_stopping_rounds=100,
     verbose_eval=100,
-    is_test=False,
+    num_class=None,
     log_target=False,
     feval=None,
 ):
@@ -945,7 +944,6 @@ def lgb_train_validate_on_cv(
     train_Y,
     test_X,
     metric,
-    num_class,
     kf,
     features,
     params={},
@@ -953,7 +951,7 @@ def lgb_train_validate_on_cv(
     early_stopping_rounds=100,
     cat_features="auto",
     verbose_eval=100,
-    is_test=False,
+    num_class=None,
     log_target=False,
     feval=None,
 ):
@@ -1240,7 +1238,6 @@ def cat_train_validate_on_cv(
     features,
     params={},
     cat_features=None,
-    is_test=False,
     log_target=False,
 ):
     """Train a CatBoost model, validate using cross validation. If `test_X` has
@@ -1362,7 +1359,7 @@ def cat_train_validate_on_cv(
 
 
 def sklearn_train_validate_on_cv(
-    logger, run_id, sklearn_model, train_X, train_Y, test_X, kf, features, is_test=False
+    logger, run_id, sklearn_model, train_X, train_Y, test_X, kf, features,
 ):
     """
     Features should be a list
