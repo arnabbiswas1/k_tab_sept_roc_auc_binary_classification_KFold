@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 
 
 __all__ = [
@@ -16,7 +17,8 @@ __all__ = [
     "get_power_feature_names",
     "get_row_wise_stat_feature_names",
     "get_cat_interaction_features",
-    "get_features_with_no_variance"
+    "get_features_with_no_variance",
+    "check_if_floats_are_int"
 ]
 
 
@@ -143,3 +145,18 @@ def get_cat_interaction_features():
 
 def get_features_with_no_variance(df):
     return df.columns[df.nunique() <= 1]
+
+
+def check_if_floats_are_int(df):
+    """
+    Returns name of the features which are of type float
+    but actually contains whole numbers
+    """
+    int_features = []
+    for column in df.columns:
+        if np.all(np.mod(df[column], 1) == 0):
+            print(f"Feature {column} does not have any decimals")
+            int_features.append(column)
+        else:
+            print(f"Feature {column} have decimals")
+    return int_features

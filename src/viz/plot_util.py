@@ -41,7 +41,8 @@ __all__ = [
     "plot_confusion_matrix",
     "plot_acf_pacf_for_feature",
     "plot_acf_pacf_for_series",
-    "plot_null_percentage_train_test_side_by_side"
+    "plot_null_percentage_train_test_side_by_side",
+    "plot_point_train_test_side_by_side_w_color_based_on_target"
 ]
 
 
@@ -336,6 +337,35 @@ def plot_boxh_train_test_overlapping(
             title=f"Distribution of {feature_name}",
         )
         ax2 = test_df[feature_name].plot(kind="box", vert=False, label="test", ax=ax2)
+    plt.show()
+
+
+def plot_point_train_test_side_by_side_w_color_based_on_target(train_df, test_df, feature_name, target, figsize=(20, 4)):
+    fig, ((ax1, ax2)) = plt.subplots(1, 2, figsize=figsize, sharey=True)
+    N = 5000
+    train_df = train_df[0: N]
+    test_df = test_df[0: N]
+    train_df[train_df[target] == 0][feature_name].plot(
+        style=".",
+        alpha=0.3,
+        ax=ax1,
+        color="blue",
+    )
+    train_df[train_df[target] == 1][feature_name].plot(
+        style=".",
+        alpha=0.2,
+        ax=ax1,
+        color="orange",
+    )
+    test_df[feature_name].plot(
+        style=".",
+        alpha=0.2,
+        ax=ax2,
+        color="green",
+    )
+    ax1.set_title(f"{feature_name} train [First {N} rows] (blue=no-claim, orange=claim)")
+    ax2.set_title(f"{feature_name} test [First {N} rows] (green)")
+    plt.ylabel(f"Value of {feature_name}")
     plt.show()
 
 

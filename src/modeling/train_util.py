@@ -1233,10 +1233,10 @@ def cat_train_validate_on_cv(
     train_Y,
     test_X,
     metric,
-    num_class,
     kf,
     features,
     params={},
+    num_class=None,
     cat_features=None,
     log_target=False,
 ):

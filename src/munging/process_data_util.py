@@ -4,6 +4,7 @@ import pandas as pd
 __all__ = [
     "read_raw_data",
     "read_processed_data",
+    "read_processed_fillna_data",
     "change_dtype",
     "map_variable",
     "merge_df",
@@ -60,6 +61,37 @@ def read_processed_data(
         logger.info(f"Shape of test_df : {test_df.shape}")
     if sample_submission:
         sample_submission_df = pd.read_parquet(f"{data_dir}/sub_processed.parquet")
+        if frac is not None:
+            sample_submission_df = sample_submission_df.sample(frac=frac)
+        logger.info(f"Shape of sample_submission_df : {sample_submission_df.shape}")
+
+    return train_df, test_df, sample_submission_df
+
+
+def read_processed_fillna_data(
+    logger, data_dir, train=True, test=True, sample_submission=True, frac=None
+):
+    """Read all the processed data files. If frac has a valid value, all
+    the DFs will be sampled and returned
+    """
+    logger.info(f"Reading Data from {data_dir}...")
+
+    train_df = None
+    test_df = None
+    sample_submission_df = None
+
+    if train:
+        train_df = pd.read_parquet(f"{data_dir}/train_processed_fillna.parquet")
+        if frac is not None:
+            train_df = train_df.sample(frac=frac)
+        logger.info(f"Shape of train_df : {train_df.shape}")
+    if test:
+        test_df = pd.read_parquet(f"{data_dir}/test_processed_fillna.parquet")
+        if frac is not None:
+            test_df = test_df.sample(frac=frac)
+        logger.info(f"Shape of test_df : {test_df.shape}")
+    if sample_submission:
+        sample_submission_df = pd.read_parquet(f"{data_dir}/sub_processed_fillna.parquet")
         if frac is not None:
             sample_submission_df = sample_submission_df.sample(frac=frac)
         logger.info(f"Shape of sample_submission_df : {sample_submission_df.shape}")

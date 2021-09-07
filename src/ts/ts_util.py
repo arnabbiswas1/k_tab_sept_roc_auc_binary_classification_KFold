@@ -105,50 +105,52 @@ def create_date_features(source_df, target_df, feature_name):
     return target_df
 
 
-def fill_with_gauss(df, w=12):
+def fill_with_gauss(ser, w=12):
     """
     Fill missing values in a time series data using gaussian
     """
-    return df.fillna(
-        df.rolling(window=w, win_type="gaussian", center=True, min_periods=1).mean(
+    return ser.fillna(
+        ser.rolling(window=w, win_type="gaussian", center=True, min_periods=1).mean(
             std=2
         )
     )
 
 
-def fill_with_po3(df):
+def fill_with_po3(ser):
     """
     Fill missing values in a time series data using interpolation (polynomial, order 3)
     """
-    df = df.fillna(df.interpolate(method="polynomial", order=3))
-    assert df.count().min() >= len(df) - 1
+    return ser.fillna(ser.interpolate(method="polynomial", order=3, limit_direction='both'))
+    # assert df.count().min() >= len(df) - 1
     # fill the first item with second item
-    return df.fillna(df.iloc[1])
+    # return df.fillna(df.iloc[1])
+    # return ser
 
 
-def fill_with_lin(df):
+def fill_with_lin(ser):
     """
     Fill missing values in a time series data using interpolation (linear)
     """
-    df = df.fillna(df.interpolate(method="linear"))
-    assert df.count().min() >= len(df) - 1
+    return ser.fillna(ser.interpolate(method="linear", limit_direction='both'))
+    # assert df.count().min() >= len(df) - 1
     # fill the first item with second item
-    return df.fillna(df.iloc[1])
+    # return df.fillna(df.iloc[1])
 
 
-def fill_with_mix(df):
+def fill_with_mix(ser):
     """
     Fill missing values in a time series data using interpolation (linear + polynomial)
     """
-    df = (
-        df.fillna(df.interpolate(method="linear", limit_direction="both"))
-        + df.fillna(
-            df.interpolate(method="polynomial", order=3, limit_direction="both")
+    ser = (
+        ser.fillna(ser.interpolate(method="linear", limit_direction="both"))
+        + ser.fillna(
+            ser.interpolate(method="polynomial", order=3, limit_direction="both")
         )
     ) * 0.5
-    assert df.count().min() >= len(df) - 1
+    return ser
+    # assert df.count().min() >= len(df) - 1
     # fill the first item with second item
-    return df.fillna(df.iloc[1])
+    # return df.fillna(df.iloc[1])
 
 
 def find_missing_dates(date_sr, start_date, end_date):

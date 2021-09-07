@@ -14,6 +14,7 @@ __all__ = [
     "calc_percentile",
     "calc_quantile",
     "calc_quantile",
+    "nan_ptp",
     "create_row_wise_stat_features",
     "create_ploynomial_features",
     "bin_cut_cont_features",
@@ -33,13 +34,21 @@ __all__ = [
 def calc_percentile(x, percentile):
     """Returns the percentile for a numpy array
     """
-    return np.percentile(x, percentile)
+    return np.nanpercentile(x, percentile)
 
 
 def calc_quantile(x, quantile):
     """Returns the quantile for a numpy array
     """
-    return np.quantile(x, quantile)
+    return np.nanquantile(x, quantile)
+
+
+def nan_ptp(x):
+    """Returns ptp for a numpy array with nan values
+
+       # https://stackoverflow.com/a/12701677/406896
+    """
+    return np.nanmax(x) - np.nanmin(x)
 
 
 def create_row_wise_stat_features(logger, source_df, target_df, features):
@@ -54,7 +63,10 @@ def create_row_wise_stat_features(logger, source_df, target_df, features):
     target_df["skew"] = source_df[features].skew(axis=1)
     target_df["kurt"] = source_df[features].kurt(axis=1)
     target_df["med"] = source_df[features].median(axis=1)
-    target_df["ptp"] = source_df[features].apply(np.ptp, axis=1)
+    # target_df["ptp"] = source_df[features].apply(np.ptp, axis=1)
+
+    target_df["ptp"] = source_df[features].apply(lambda x: nan_ptp(x), axis=1)
+    target_df["no_null"] = source_df[features].isna().sum(axis=1)
 
     target_df["percentile_10"] = source_df[features].apply(
         lambda x: calc_percentile(x, 10), axis=1
@@ -189,7 +201,7 @@ def create_frequency_encoding(logger, source_df, target_df, features):
     logger.info("Creating frequency encoding features...")
     for name in features:
         logger.info(f"Creating frequency encoding for {name}...")
-        freq_map_dict = source_df[name].value_counts().to_dict()
+        freq_map_dict = source_df[name].value_counts(dropna=False).to_dict()
         target_df[f"{name}_freq"] = source_df[name].map(freq_map_dict).astype(np.int32)
     return target_df
 
