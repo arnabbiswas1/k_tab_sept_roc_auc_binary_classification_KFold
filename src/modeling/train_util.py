@@ -150,6 +150,17 @@ def _calculate_perf_metric(metric_name, y, y_hat):
         )
 
 
+def _get_scorer(metric_name):
+    if metric_name == "roc_auc":
+        return metrics.roc_auc_score
+    elif metric_name == "log_loss":
+        return metrics.log_loss
+    else:
+        raise ValueError(
+            "Invalid value for metric_name. Only rmse, rmsle, roc_auc, log_loss allowed"
+        )
+
+
 def _get_x_y_from_data(logger, df, predictors, target):
     """Returns X & Y from a DataFrame"""
     if df is not None:
@@ -1140,9 +1151,9 @@ def _capture_permutation_importance(perm_importance_df, n_important_features=Non
 
 def lgb_train_perm_importance_on_cv(
     logger,
-    run_id,
     train_X,
     train_Y,
+    metric,
     kf,
     features,
     seed,
@@ -1200,10 +1211,12 @@ def lgb_train_perm_importance_on_cv(
         del X_train, y_train, train_index, validation_index
         gc.collect()
 
+        scorer = _get_scorer(metric)
+
         # calculate permitation importance for the classifier
         perm = eli5.sklearn.PermutationImportance(
             model,
-            scoring=make_scorer(score_func=metrics.f1_score, average="weighted"),
+            scoring=make_scorer(score_func=scorer, average="weighted"),
             random_state=seed,
         ).fit(X_validation, y_validation, num_iteration=model.best_iteration_)
 

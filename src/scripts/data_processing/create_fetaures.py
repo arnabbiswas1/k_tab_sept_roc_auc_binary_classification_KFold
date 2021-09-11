@@ -13,7 +13,7 @@ def main():
     logger.info("Starting to generate features")
 
     TARGET = "claim"
-    FEATURE_FILE_NAME = "features_fenc_cat_intrc.parquet"
+    FEATURE_FILE_NAME = "features_bin_qcut.parquet"
 
     train_df, test_df, _ = process_data.read_processed_data(
         logger,
@@ -50,9 +50,9 @@ def main():
 
     features_df = pd.DataFrame()
 
-    # features_df = fe.create_row_wise_stat_features(
-    #     logger, combined_df, features_df, all_features
-    # )
+    features_df = fe.create_row_wise_stat_features(
+        logger, combined_df, features_df, all_features
+    )
 
     features_df = fe.create_frequency_encoding(
         logger, combined_df, features_df, all_features
@@ -69,17 +69,17 @@ def main():
         + cat_less_than_6,
     )
 
-    # features_df = fe.create_power_features(
-    #     logger, combined_df, features_df, all_features
-    # )
+    features_df = fe.create_power_features(
+        logger, combined_df, features_df, all_features
+    )
 
-    # features_df = fe.bin_cut_cont_features(
-    #     logger, combined_df, features_df, all_features, bin_size=10
-    # )
+    features_df = fe.bin_cut_cont_features(
+        logger, combined_df, features_df, all_features, bin_size=10
+    )
 
-    # features_df = fe.bin_qcut_cont_features(
-    #     logger, combined_df, features_df, all_features, bin_size=10
-    # )
+    features_df = fe.bin_qcut_cont_features(
+        logger, combined_df, features_df, all_features, bin_size=10
+    )
 
     # # This is going to be huge. Dropping for now
     # features_df = fe.create_continuous_feature_interaction(
@@ -96,10 +96,10 @@ def main():
 
     logger.info("Changing data type ..")
     combined_df = process_data.change_dtype(logger, features_df, np.int64, np.int32)
-    combined_df = process_data.change_dtype(logger, features_df, np.float64, np.float32)
+    # combined_df = process_data.change_dtype(logger, features_df, np.float64, np.float32)
     combined_df = process_data.change_dtype(logger, features_df, np.object, "category")
 
-    logger.info(f"Writing generated features to {constants.FEATURES_DATA_DIR}")
+    logger.info(f"Writing generated features to {constants.FEATURES_DATA_DIR}/{FEATURE_FILE_NAME}")
     features_df.to_parquet(
         f"{constants.FEATURES_DATA_DIR}/{FEATURE_FILE_NAME}", index=True
     )

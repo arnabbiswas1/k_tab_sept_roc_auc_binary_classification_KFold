@@ -130,7 +130,7 @@ def bin_qcut_cont_features(logger, source_df, target_df, features, bin_size=10):
     for name in features:
         logger.info(f"Creating bins out of using {name}")
         target_df[f"{name}_qcut_bin_{bin_size}"] = pd.qcut(
-            source_df[name], bins=bin_size, labels=False
+            source_df[name], q=bin_size, labels=False
         )
     return target_df
 

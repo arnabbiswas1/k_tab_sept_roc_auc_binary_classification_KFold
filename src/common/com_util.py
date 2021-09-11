@@ -6,7 +6,6 @@ import sys
 import time
 
 import numpy as np
-from numpy.core.fromnumeric import compress
 import pandas as pd
 
 import src.config.constants as constants
@@ -31,6 +30,7 @@ __all__ = [
 def set_seed(seed=0):
     random.seed(seed)
     np.random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
 
 
 def trigger_gc(logger):
