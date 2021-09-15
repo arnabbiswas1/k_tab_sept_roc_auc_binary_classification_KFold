@@ -198,8 +198,6 @@ if __name__ == "__main__":
         f"{constants.FEATURES_DATA_DIR}/features_row_wise_stat.parquet"
     )
 
-    features_df = features_df[["max", "min", "std", "sum"]]
-
     logger.info(f"Shape of the features {features_df.shape}")
 
     train_X = features_df.iloc[0: len(train_df)]
