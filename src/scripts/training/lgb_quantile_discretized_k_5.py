@@ -1,5 +1,5 @@
 """
-LGB, KFold-5, not filled, row wise stat, perm importance
+LGB, KFold-5, not filled, quantile, discretizer
 """
 
 import os
@@ -7,7 +7,10 @@ from timeit import default_timer as timer
 from datetime import datetime
 
 import pandas as pd
+import numpy as np
 from sklearn.model_selection import KFold
+from sklearn.preprocessing import QuantileTransformer, KBinsDiscretizer
+from sklearn.impute import SimpleImputer
 
 import src.common as common
 import src.config.constants as constants
@@ -22,7 +25,7 @@ RUN_ID = datetime.now().strftime("%m%d_%H%M")
 MODEL_NAME = os.path.basename(__file__).split(".")[0]
 
 SEED = 42
-EXP_DETAILS = "LGB, KFold-5, not filled, row wise stat, perm importance"
+EXP_DETAILS = "LGB, KFold-5, not filled, quantile, discretizer"
 
 TARGET = "claim"
 N_SPLIT = 5
@@ -52,7 +55,6 @@ lgb_params = {
     "max_bin": 255,
     "metric": METRIC,
     "verbose": -1,
-    "n_estimators": N_ESTIMATORS
 }
 
 
@@ -77,8 +79,19 @@ train_df, test_df, sample_submission_df = process_data.read_processed_data(
     sample_submission=True,
 )
 combined_df = pd.concat([train_df.drop(TARGET, axis=1), test_df])
-features_df = pd.read_parquet(f"{constants.FEATURES_DATA_DIR}/features_row_wise_stat.parquet")
-combined_df = pd.concat([combined_df, features_df], axis=1)
+
+logger.info("Imputing values")
+imp = SimpleImputer(missing_values=np.nan, strategy='median')
+combined_df = imp.fit_transform(combined_df)
+logger.info("Quantile transformation")
+qt = QuantileTransformer(n_quantiles=300, output_distribution='uniform')
+combined_df = qt.fit_transform(combined_df)
+logger.info("KBinsDiscretizer")
+bin_cat = KBinsDiscretizer(n_bins=800, encode='ordinal', strategy='uniform')
+combined_df = bin_cat.fit_transform(combined_df)
+
+combined_df = pd.DataFrame(combined_df)
+combined_df.columns = test_df.columns
 
 target = train_df[TARGET]
 
@@ -92,6 +105,18 @@ train_Y = train_df[TARGET]
 test_X = test_df
 
 logger.info(
+   train_X.head()
+)
+
+logger.info(
+   train_Y.head()
+)
+
+logger.info(
+   test_X.head()
+)
+
+logger.info(
     f"Shape of train_X : {train_X.shape}, test_X: {test_X.shape}, train_Y: {train_Y.shape}"
 )
 
@@ -103,29 +128,40 @@ common.update_tracking(RUN_ID, "cv_method", "KFold")
 common.update_tracking(RUN_ID, "n_fold", N_SPLIT)
 
 
-permu_imp_df, top_imp_df = model.lgb_train_perm_importance_on_cv(
+results_dict = model.lgb_train_validate_on_cv(
     logger,
+    run_id=RUN_ID,
     train_X=train_X,
     train_Y=train_Y,
+    test_X=test_X,
     metric="roc_auc",
     kf=kfold,
     features=predictors,
-    seed=SEED,
     params=lgb_params,
+    n_estimators=N_ESTIMATORS,
     early_stopping_rounds=EARLY_STOPPING_ROUNDS,
-    cat_features=[],
+    cat_features="auto",
     verbose_eval=100,
-    display_imp=False,
+    retrain=False
 )
 
-common.save_permutation_imp_artifacts(
+common.update_tracking(RUN_ID, "lb_score", 0, is_integer=True)
+
+train_index = train_df.index
+
+common.save_artifacts(
     logger,
-    permu_imp_df,
-    top_imp_df,
-    RUN_ID,
-    MODEL_NAME,
-    constants.FI_DIR,
-    constants.FI_FIG_DIR,
+    target=TARGET,
+    is_plot_fi=True,
+    result_dict=results_dict,
+    submission_df=sample_submission_df,
+    train_index=train_index,
+    model_number=MODEL_NAME,
+    run_id=RUN_ID,
+    sub_dir=constants.SUBMISSION_DIR,
+    oof_dir=constants.OOF_DIR,
+    fi_dir=constants.FI_DIR,
+    fi_fig_dir=constants.FI_FIG_DIR,
 )
 
 end = timer()

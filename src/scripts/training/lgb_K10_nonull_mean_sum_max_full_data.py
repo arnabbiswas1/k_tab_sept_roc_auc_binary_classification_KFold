@@ -1,5 +1,5 @@
 """
-LGB, KFold-5, not filled, row wise stat, perm importance
+"LGB,KF10,full data,non-null,mean, sum,max"
 """
 
 import os
@@ -22,17 +22,17 @@ RUN_ID = datetime.now().strftime("%m%d_%H%M")
 MODEL_NAME = os.path.basename(__file__).split(".")[0]
 
 SEED = 42
-EXP_DETAILS = "LGB, KFold-5, not filled, row wise stat, perm importance"
+EXP_DETAILS = "LGB,KF10,full data,non-null,mean, sum,max"
 
 TARGET = "claim"
-N_SPLIT = 5
+N_SPLIT = 10
 
 MODEL_TYPE = "lgb"
 OBJECTIVE = "binary"
 BOOSTING_TYPE = "gbdt"
 METRIC = "auc"
 VERBOSE = 100
-N_THREADS = -1
+N_THREADS = 8
 NUM_LEAVES = 31
 MAX_DEPTH = -1
 N_ESTIMATORS = 10000
@@ -52,7 +52,6 @@ lgb_params = {
     "max_bin": 255,
     "metric": METRIC,
     "verbose": -1,
-    "n_estimators": N_ESTIMATORS
 }
 
 
@@ -76,8 +75,13 @@ train_df, test_df, sample_submission_df = process_data.read_processed_data(
     test=True,
     sample_submission=True,
 )
+
 combined_df = pd.concat([train_df.drop(TARGET, axis=1), test_df])
+
 features_df = pd.read_parquet(f"{constants.FEATURES_DATA_DIR}/features_row_wise_stat.parquet")
+features_to_use = ["no_null", "mean", "sum", "max"]
+
+features_df = features_df[features_to_use]
 combined_df = pd.concat([combined_df, features_df], axis=1)
 
 target = train_df[TARGET]
@@ -96,6 +100,8 @@ logger.info(
 )
 
 predictors = list(train_X.columns)
+logger.info(f"List of predictors {predictors}")
+
 kfold = KFold(n_splits=N_SPLIT, random_state=SEED, shuffle=True)
 
 common.update_tracking(RUN_ID, "no_of_features", len(predictors), is_integer=True)
@@ -103,29 +109,40 @@ common.update_tracking(RUN_ID, "cv_method", "KFold")
 common.update_tracking(RUN_ID, "n_fold", N_SPLIT)
 
 
-permu_imp_df, top_imp_df = model.lgb_train_perm_importance_on_cv(
+results_dict = model.lgb_train_validate_on_cv(
     logger,
+    run_id=RUN_ID,
     train_X=train_X,
     train_Y=train_Y,
+    test_X=test_X,
     metric="roc_auc",
     kf=kfold,
     features=predictors,
-    seed=SEED,
     params=lgb_params,
+    n_estimators=N_ESTIMATORS,
     early_stopping_rounds=EARLY_STOPPING_ROUNDS,
-    cat_features=[],
+    cat_features="auto",
     verbose_eval=100,
-    display_imp=False,
+    retrain=True
 )
 
-common.save_permutation_imp_artifacts(
+common.update_tracking(RUN_ID, "lb_score", 0, is_integer=True)
+
+train_index = train_df.index
+
+common.save_artifacts(
     logger,
-    permu_imp_df,
-    top_imp_df,
-    RUN_ID,
-    MODEL_NAME,
-    constants.FI_DIR,
-    constants.FI_FIG_DIR,
+    target=TARGET,
+    is_plot_fi=True,
+    result_dict=results_dict,
+    submission_df=sample_submission_df,
+    train_index=train_index,
+    model_number=MODEL_NAME,
+    run_id=RUN_ID,
+    sub_dir=constants.SUBMISSION_DIR,
+    oof_dir=constants.OOF_DIR,
+    fi_dir=constants.FI_DIR,
+    fi_fig_dir=constants.FI_FIG_DIR,
 )
 
 end = timer()

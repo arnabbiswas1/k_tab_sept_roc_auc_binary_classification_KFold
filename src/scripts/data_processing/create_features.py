@@ -13,7 +13,7 @@ def main():
     logger.info("Starting to generate features")
 
     TARGET = "claim"
-    FEATURE_FILE_NAME = "features_bin_qcut.parquet"
+    FEATURE_FILE_NAME = "features_row_wise_stat_extra.parquet"
 
     train_df, test_df, _ = process_data.read_processed_data(
         logger,
@@ -81,15 +81,15 @@ def main():
         logger, combined_df, features_df, all_features, bin_size=10
     )
 
-    # # This is going to be huge. Dropping for now
-    # features_df = fe.create_continuous_feature_interaction(
-    #     logger, combined_df, features_df, cont_feature
-    # )
+    # This is going to be huge. Dropping for now
+    features_df = fe.create_continuous_feature_interaction(
+        logger, combined_df, features_df, cont_features
+    )
 
     # This is going to be huge. Dropping for now
-    # features_df = fe.create_ploynomial_features(
-    #     logger, combined_df, features_df, cont_feature
-    # )
+    features_df = fe.create_ploynomial_features(
+        logger, combined_df, features_df, cont_feature
+    )
 
     logger.info(f"Shape of the generated features {features_df.shape}")
     logger.info(f"Name of the features generated {list(features_df.columns)}")

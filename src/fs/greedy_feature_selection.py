@@ -17,8 +17,6 @@ import src.common as common
 import src.config.constants as constants
 import src.munging.process_data_util as process_data
 from src.modeling import _calculate_perf_metric as calculate_metric
-from src.modeling import evaluate_macroF1_lgb
-
 
 __all__ = ["GreedyFeatureSelection"]
 
@@ -39,21 +37,21 @@ class GreedyFeatureSelection:
         return X_train, X_validation, y_train, y_validation
 
     def __calculate_perf_metric(self, y, y_hat):
-        return calculate_metric(metric_name="f1_score_weighted", y=y, y_hat=y_hat)
+        return calculate_metric(metric_name="roc_auc", y=y, y_hat=y_hat)
 
     def evalaute_score(self, train_X, train_Y):
-        kf = StratifiedKFold(n_splits=2, shuffle=True)
+        N_SPLIT = 2
+        SEED = 42
+        kf = StratifiedKFold(n_splits=N_SPLIT, shuffle=True, random_state=SEED)
 
-        OBJECTIVE = "multiclass"
-        NUM_CLASSES = 43
-        # Note: Metric is set to custom
-        METRIC = "custom"
+        OBJECTIVE = "binary"
         BOOSTING_TYPE = "gbdt"
+        METRIC = "auc"
         VERBOSE = 100
         N_THREADS = 8
         NUM_LEAVES = 31
         MAX_DEPTH = -1
-        N_ESTIMATORS = 1000
+        N_ESTIMATORS = 10000
         LEARNING_RATE = 0.1
         EARLY_STOPPING_ROUNDS = 100
 
@@ -61,7 +59,6 @@ class GreedyFeatureSelection:
             "objective": OBJECTIVE,
             "boosting_type": BOOSTING_TYPE,
             "learning_rate": LEARNING_RATE,
-            "num_class": NUM_CLASSES,
             "num_leaves": NUM_LEAVES,
             "tree_learner": "serial",
             "n_jobs": N_THREADS,
@@ -72,7 +69,7 @@ class GreedyFeatureSelection:
             "verbose": -1,
         }
 
-        y_oof = np.zeros(shape=(len(train_X), NUM_CLASSES))
+        y_oof = np.zeros(shape=(len(train_X)))
 
         features = list(train_X.columns)
         fold = 0
@@ -95,8 +92,7 @@ class GreedyFeatureSelection:
                 early_stopping_rounds=EARLY_STOPPING_ROUNDS,
                 num_boost_round=N_ESTIMATORS,
                 feature_name=features,
-                # categorical_feature=[],
-                feval=evaluate_macroF1_lgb,
+                categorical_feature="auto",
             )
 
             del lgb_train, lgb_eval, train_index, X_train, y_train
@@ -160,8 +156,11 @@ class GreedyFeatureSelection:
 
             if len(best_scores) > 2:
                 if best_scores[-1] < best_scores[-2]:
-                    logger.info("Ending greedy selcetion loop")
+                    logger.info("Ending greedy selection loop")
                     break
+                elif(sorted(good_features) == sorted(all_features)):
+                    logger.info("All the features are good. Ending")
+                    return best_scores[-1], good_features
 
         return best_scores[-2], good_features[:-1]
 
@@ -180,7 +179,7 @@ if __name__ == "__main__":
     MODEL_NAME = os.path.basename(__file__).split(".")[0]
 
     SEED = 42
-    TARGET = "loss"
+    TARGET = "claim"
 
     LOGGER_NAME = "gfs"
     logger = common.get_logger(LOGGER_NAME, MODEL_NAME, RUN_ID, constants.LOG_DIR)
@@ -196,130 +195,16 @@ if __name__ == "__main__":
     )
 
     features_df = pd.read_parquet(
-        f"{constants.FEATURES_DATA_DIR}/cast/tsfresh_f_merged.parquet"
+        f"{constants.FEATURES_DATA_DIR}/features_row_wise_stat.parquet"
     )
 
+    features_df = features_df[["max", "min", "std", "sum"]]
+
     logger.info(f"Shape of the features {features_df.shape}")
-    ts_fetaures_to_use = [
-        "loan__change_quantiles__f_agg_mean__isabs_False__qh_06__ql_02",
-        "loan__fft_coefficient__attr_imag__coeff_7",
-        "loan__agg_linear_trend__attr_stderr__chunk_len_10__f_agg_mean",
-        "loan__cwt_coefficients__coeff_12__w_2__widths_251020",
-        "loan__fft_coefficient__attr_abs__coeff_7",
-        "loan__fft_coefficient__attr_imag__coeff_46",
-        "loan__agg_linear_trend__attr_intercept__chunk_len_50__f_agg_mean",
-        "loan__cwt_coefficients__coeff_13__w_2__widths_251020",
-        "loan__skewness",
-        "loan__fft_coefficient__attr_imag__coeff_25",
-        "loan__fft_coefficient__attr_real__coeff_27",
-        "loan__fft_coefficient__attr_angle__coeff_46",
-        "loan__fft_coefficient__attr_real__coeff_26",
-        "loan__change_quantiles__f_agg_var__isabs_True__qh_06__ql_04",
-        "loan__fft_coefficient__attr_imag__coeff_35",
-        "loan__fft_coefficient__attr_real__coeff_44",
-        "loan__cwt_coefficients__coeff_5__w_2__widths_251020",
-        "loan__fft_coefficient__attr_angle__coeff_7",
-        "loan__autocorrelation__lag_1",
-        "loan__fft_coefficient__attr_angle__coeff_43",
-        "loan__fft_coefficient__attr_angle__coeff_25",
-        "loan__fft_coefficient__attr_angle__coeff_35",
-        "loan__fft_coefficient__attr_angle__coeff_27",
-        "loan__fft_coefficient__attr_abs__coeff_46",
-        "loan__fft_coefficient__attr_abs__coeff_26",
-        "loan__agg_linear_trend__attr_intercept__chunk_len_10__f_agg_mean",
-        "loan__fft_coefficient__attr_angle__coeff_44",
-        "loan__cwt_coefficients__coeff_14__w_2__widths_251020",
-        "loan__fft_coefficient__attr_abs__coeff_25",
-        "loan__autocorrelation__lag_2",
-        "loan__linear_trend__attr_intercept",
-        "loan__agg_linear_trend__attr_stderr__chunk_len_5__f_agg_mean",
-        "loan__agg_linear_trend__attr_intercept__chunk_len_5__f_agg_mean",
-        "loan__autocorrelation__lag_3",
-        "loan__cwt_coefficients__coeff_11__w_2__widths_251020",
-        "loan__fft_coefficient__attr_abs__coeff_35",
-        "loan__fft_coefficient__attr_imag__coeff_43",
-        "loan__fft_coefficient__attr_real__coeff_43",
-        "loan__autocorrelation__lag_4",
-        "loan__fft_coefficient__attr_abs__coeff_9",
-        "loan__change_quantiles__f_agg_mean__isabs_False__qh_06__ql_04",
-        "loan__agg_linear_trend__attr_slope__chunk_len_50__f_agg_mean",
-        "loan__fft_coefficient__attr_real__coeff_46",
-        "loan__fft_coefficient__attr_abs__coeff_27",
-        "loan__cwt_coefficients__coeff_4__w_2__widths_251020",
-        "loan__fft_coefficient__attr_abs__coeff_0",
-        "loan__fft_coefficient__attr_real__coeff_25",
-        "loan__fft_coefficient__attr_real__coeff_7",
-        "loan__fft_coefficient__attr_real__coeff_35",
-        "loan__cwt_coefficients__coeff_1__w_2__widths_251020",
-        "loan__cwt_coefficients__coeff_8__w_2__widths_251020",
-        "loan__change_quantiles__f_agg_var__isabs_False__qh_06__ql_04",
-        "loan__autocorrelation__lag_5",
-        "loan__fft_coefficient__attr_abs__coeff_44",
-        "loan__change_quantiles__f_agg_mean__isabs_False__qh_10__ql_06",
-        "loan__cwt_coefficients__coeff_6__w_2__widths_251020",
-        "loan__fft_coefficient__attr_angle__coeff_26",
-        "loan__autocorrelation__lag_6",
-        "loan__fft_coefficient__attr_real__coeff_9",
-        "loan__autocorrelation__lag_7",
-        "loan__autocorrelation__lag_8",
-        "loan__autocorrelation__lag_9",
-        "loan__agg_autocorrelation__f_agg_var__maxlag_40",
-        "loan__change_quantiles__f_agg_mean__isabs_False__qh_08__ql_02",
-        "loan__agg_linear_trend__attr_stderr__chunk_len_5__f_agg_max",
-        "loan__agg_autocorrelation__f_agg_median__maxlag_40",
-        "loan__change_quantiles__f_agg_mean__isabs_False__qh_08__ql_00",
-        "loan__agg_autocorrelation__f_agg_mean__maxlag_40",
-        "loan__change_quantiles__f_agg_mean__isabs_False__qh_02__ql_00",
-        "loan__change_quantiles__f_agg_mean__isabs_False__qh_04__ql_00",
-        "loan__cwt_coefficients__coeff_9__w_2__widths_251020",
-        "loan__ar_coefficient__coeff_0__k_10",
-        "loan__cwt_coefficients__coeff_0__w_2__widths_251020",
-        "loan__change_quantiles__f_agg_mean__isabs_False__qh_04__ql_02",
-        "loan__change_quantiles__f_agg_mean__isabs_False__qh_06__ql_00",
-        "loan__agg_linear_trend__attr_rvalue__chunk_len_10__f_agg_mean",
-        "loan__change_quantiles__f_agg_mean__isabs_True__qh_06__ql_04",
-        "loan__fft_coefficient__attr_imag__coeff_27",
-        "loan__fft_coefficient__attr_imag__coeff_44",
-        "loan__abs_energy",
-        "loan__change_quantiles__f_agg_mean__isabs_False__qh_10__ql_04",
-        "loan__kurtosis",
-        "loan__change_quantiles__f_agg_var__isabs_False__qh_02__ql_00",
-        "loan__fft_coefficient__attr_imag__coeff_1",
-        "loan__fft_coefficient__attr_abs__coeff_1",
-        "loan__change_quantiles__f_agg_mean__isabs_False__qh_08__ql_04",
-        "loan__linear_trend__attr_pvalue",
-        "loan__change_quantiles__f_agg_mean__isabs_False__qh_10__ql_00",
-        "loan__cwt_coefficients__coeff_3__w_2__widths_251020",
-        "loan__cwt_coefficients__coeff_10__w_2__widths_251020",
-        "loan__fft_coefficient__attr_abs__coeff_43",
-        "loan__fft_coefficient__attr_real__coeff_13",
-        "loan__change_quantiles__f_agg_var__isabs_False__qh_06__ql_00",
-        "loan__change_quantiles__f_agg_mean__isabs_True__qh_02__ql_00",
-        "loan__change_quantiles__f_agg_var__isabs_False__qh_04__ql_00",
-        "loan__fft_coefficient__attr_imag__coeff_11",
-        "loan__fft_coefficient__attr_angle__coeff_8",
-        "loan__fft_coefficient__attr_imag__coeff_37",
-        "loan__fft_coefficient__attr_imag__coeff_9",
-        "loan__fft_coefficient__attr_imag__coeff_2",
-        "loan__change_quantiles__f_agg_var__isabs_True__qh_06__ql_00",
-        "loan__change_quantiles__f_agg_var__isabs_True__qh_08__ql_00",
-        "loan__change_quantiles__f_agg_var__isabs_True__qh_04__ql_00",
-        "loan__fft_coefficient__attr_real__coeff_37",
-        "loan__fft_coefficient__attr_imag__coeff_10",
-        "loan__change_quantiles__f_agg_mean__isabs_False__qh_10__ql_08",
-        "loan__change_quantiles__f_agg_mean__isabs_False__qh_08__ql_06",
-        "loan__fft_coefficient__attr_angle__coeff_13",
-        "loan__fft_coefficient__attr_angle__coeff_2",
-    ]
-    features_df = features_df[ts_fetaures_to_use]
-    logger.info(f"Shape of the selected features {features_df.shape}")
 
-    df_cesium = pd.read_parquet(f"{constants.FEATURES_DATA_DIR}/cesium_final.parquet")
-    features_df = pd.concat([features_df, df_cesium], axis=1)
-
-    train_X = features_df.iloc[0 : len(train_df)]
-    train_Y = train_df["loss"]
-    test_X = features_df.iloc[len(train_df) :]
+    train_X = features_df.iloc[0: len(train_df)]
+    train_Y = train_df[TARGET]
+    test_X = features_df.iloc[len(train_df):]
 
     logger.info(
         f"Shape of train_X : {train_X.shape}, test_X: {test_X.shape}, train_Y: {train_Y.shape}"

@@ -161,6 +161,14 @@ def _get_scorer(metric_name):
         )
 
 
+def _get_random_seeds(i):
+    """
+    returns 10 seeds
+    """
+    seed_list = [42, 103, 13, 31, 17, 23, 46, 57, 83, 93]
+    return seed_list[i-1]
+
+
 def _get_x_y_from_data(logger, df, predictors, target):
     """Returns X & Y from a DataFrame"""
     if df is not None:
@@ -964,6 +972,7 @@ def lgb_train_validate_on_cv(
     verbose_eval=100,
     num_class=None,
     log_target=False,
+    retrain=False,
     feval=None,
 ):
     """Train a LightGBM model, validate using cross validation. If `test_X` has
@@ -1045,16 +1054,6 @@ def lgb_train_validate_on_cv(
                 X_validation, num_iteration=model.best_iteration
             )
 
-        if test_X is not None:
-            if log_target:
-                y_predicted += np.expm1(
-                    model.predict(test_X.values, num_iteration=model.best_iteration)
-                )
-            else:
-                y_predicted += model.predict(
-                    test_X.values, num_iteration=model.best_iteration
-                )
-
         best_iteration = model.best_iteration
         best_iterations.append(best_iteration)
         logger.info(f"Best number of iterations for fold {fold} is: {best_iteration}")
@@ -1076,6 +1075,42 @@ def lgb_train_validate_on_cv(
         # util.update_tracking(
         #     run_id, f"metric_fold_{fold}", cv_oof_score, is_integer=False
         # )
+        if retrain:
+            params["seed"] = _get_random_seeds(fold)
+            logger.info(f"Retraining the model with seed [{params['seed']}] on full data")
+            if log_target:
+                lgb_train = lgb.Dataset(train_X, np.log1p(train_Y))
+            else:
+                lgb_train = lgb.Dataset(train_X, train_Y)
+
+            if feval:
+                # For custom metric. metric should be set to "custom" in parameters
+                model = lgb.train(
+                    params,
+                    lgb_train,
+                    num_boost_round=model.best_iteration,
+                    feature_name=features,
+                    categorical_feature=cat_features,
+                    feval=feval,
+                )
+            else:
+                model = lgb.train(
+                    params,
+                    lgb_train,
+                    num_boost_round=model.best_iteration,
+                    feature_name=features,
+                    categorical_feature=cat_features,
+                )
+
+        if test_X is not None:
+            if log_target:
+                y_predicted += np.expm1(
+                    model.predict(test_X.values, num_iteration=model.best_iteration)
+                )
+            else:
+                y_predicted += model.predict(
+                    test_X.values, num_iteration=model.best_iteration
+                )
 
     result_dict = _evaluate_and_log(
         logger,

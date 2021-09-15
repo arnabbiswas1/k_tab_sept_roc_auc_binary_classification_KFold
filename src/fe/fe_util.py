@@ -60,26 +60,82 @@ def create_row_wise_stat_features(logger, source_df, target_df, features):
     target_df["sum"] = source_df[features].sum(axis=1)
     target_df["mean"] = source_df[features].mean(axis=1)
     target_df["std"] = source_df[features].std(axis=1)
+    target_df["var"] = source_df[features].var(axis=1)
     target_df["skew"] = source_df[features].skew(axis=1)
     target_df["kurt"] = source_df[features].kurt(axis=1)
     target_df["med"] = source_df[features].median(axis=1)
-    # target_df["ptp"] = source_df[features].apply(np.ptp, axis=1)
-
-    target_df["ptp"] = source_df[features].apply(lambda x: nan_ptp(x), axis=1)
+    target_df["notna_ptp"] = source_df[features].apply(np.ptp, axis=1)
+    target_df["na_ptp"] = source_df[features].apply(lambda x: nan_ptp(x), axis=1)
     target_df["no_null"] = source_df[features].isna().sum(axis=1)
+    target_df["abs_sum"] = source_df[features].abs().sum(axis=1)
+    target_df["sem"] = source_df[features].sem(axis=1)
 
+    target_df["percentile_1"] = source_df[features].apply(
+        lambda x: calc_percentile(x, 1), axis=1
+    )
+    target_df["percentile_5"] = source_df[features].apply(
+        lambda x: calc_percentile(x, 5), axis=1
+    )
     target_df["percentile_10"] = source_df[features].apply(
         lambda x: calc_percentile(x, 10), axis=1
+    )
+    target_df["percentile_20"] = source_df[features].apply(
+        lambda x: calc_percentile(x, 20), axis=1
+    )
+    target_df["percentile_30"] = source_df[features].apply(
+        lambda x: calc_percentile(x, 30), axis=1
+    )
+    target_df["percentile_40"] = source_df[features].apply(
+        lambda x: calc_percentile(x, 40), axis=1
     )
     target_df["percentile_60"] = source_df[features].apply(
         lambda x: calc_percentile(x, 60), axis=1
     )
+    target_df["percentile_70"] = source_df[features].apply(
+        lambda x: calc_percentile(x, 70), axis=1
+    )
+    target_df["percentile_80"] = source_df[features].apply(
+        lambda x: calc_percentile(x, 80), axis=1
+    )
     target_df["percentile_90"] = source_df[features].apply(
         lambda x: calc_percentile(x, 90), axis=1
     )
+    target_df["percentile_95"] = source_df[features].apply(
+        lambda x: calc_percentile(x, 95), axis=1
+    )
+    target_df["percentile_99"] = source_df[features].apply(
+        lambda x: calc_percentile(x, 99), axis=1
+    )
 
-    target_df["quantile_5"] = source_df[features].apply(
+    target_df["quantile_1"] = source_df[features].apply(
+        lambda x: calc_quantile(x, 0.01), axis=1
+    )
+    target_df["quantile_10"] = source_df[features].apply(
+        lambda x: calc_quantile(x, 0.1), axis=1
+    )
+    target_df["quantile_20"] = source_df[features].apply(
+        lambda x: calc_quantile(x, 0.2), axis=1
+    )
+    target_df["quantile_30"] = source_df[features].apply(
+        lambda x: calc_quantile(x, 0.3), axis=1
+    )
+    target_df["quantile_40"] = source_df[features].apply(
+        lambda x: calc_quantile(x, 0.4), axis=1
+    )
+    target_df["quantile_50"] = source_df[features].apply(
         lambda x: calc_quantile(x, 0.5), axis=1
+    )
+    target_df["quantile_60"] = source_df[features].apply(
+        lambda x: calc_quantile(x, 0.6), axis=1
+    )
+    target_df["quantile_70"] = source_df[features].apply(
+        lambda x: calc_quantile(x, 0.7), axis=1
+    )
+    target_df["quantile_80"] = source_df[features].apply(
+        lambda x: calc_quantile(x, 0.8), axis=1
+    )
+    target_df["quantile_90"] = source_df[features].apply(
+        lambda x: calc_quantile(x, 0.9), axis=1
     )
     target_df["quantile_95"] = source_df[features].apply(
         lambda x: calc_quantile(x, 0.95), axis=1

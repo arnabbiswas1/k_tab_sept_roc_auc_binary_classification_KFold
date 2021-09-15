@@ -1,5 +1,5 @@
 """
-LGB, KFold-5, not filled, row wise stat, perm importance
+LGB, KFold-5, not filled, row wise stat, no full data
 """
 
 import os
@@ -22,7 +22,7 @@ RUN_ID = datetime.now().strftime("%m%d_%H%M")
 MODEL_NAME = os.path.basename(__file__).split(".")[0]
 
 SEED = 42
-EXP_DETAILS = "LGB, KFold-5, not filled, row wise stat, perm importance"
+EXP_DETAILS = "LGB, KFold-5, not filled, row wise stat, no full data"
 
 TARGET = "claim"
 N_SPLIT = 5
@@ -52,7 +52,6 @@ lgb_params = {
     "max_bin": 255,
     "metric": METRIC,
     "verbose": -1,
-    "n_estimators": N_ESTIMATORS
 }
 
 
@@ -103,29 +102,40 @@ common.update_tracking(RUN_ID, "cv_method", "KFold")
 common.update_tracking(RUN_ID, "n_fold", N_SPLIT)
 
 
-permu_imp_df, top_imp_df = model.lgb_train_perm_importance_on_cv(
+results_dict = model.lgb_train_validate_on_cv(
     logger,
+    run_id=RUN_ID,
     train_X=train_X,
     train_Y=train_Y,
+    test_X=test_X,
     metric="roc_auc",
     kf=kfold,
     features=predictors,
-    seed=SEED,
     params=lgb_params,
+    n_estimators=N_ESTIMATORS,
     early_stopping_rounds=EARLY_STOPPING_ROUNDS,
-    cat_features=[],
+    cat_features="auto",
     verbose_eval=100,
-    display_imp=False,
+    retrain=False
 )
 
-common.save_permutation_imp_artifacts(
+common.update_tracking(RUN_ID, "lb_score", 0, is_integer=True)
+
+train_index = train_df.index
+
+common.save_artifacts(
     logger,
-    permu_imp_df,
-    top_imp_df,
-    RUN_ID,
-    MODEL_NAME,
-    constants.FI_DIR,
-    constants.FI_FIG_DIR,
+    target=TARGET,
+    is_plot_fi=True,
+    result_dict=results_dict,
+    submission_df=sample_submission_df,
+    train_index=train_index,
+    model_number=MODEL_NAME,
+    run_id=RUN_ID,
+    sub_dir=constants.SUBMISSION_DIR,
+    oof_dir=constants.OOF_DIR,
+    fi_dir=constants.FI_DIR,
+    fi_fig_dir=constants.FI_FIG_DIR,
 )
 
 end = timer()
