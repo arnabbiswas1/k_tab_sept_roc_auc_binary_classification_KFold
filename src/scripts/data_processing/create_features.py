@@ -82,14 +82,14 @@ def main():
     )
 
     # This is going to be huge. Dropping for now
-    features_df = fe.create_continuous_feature_interaction(
-        logger, combined_df, features_df, cont_features
-    )
+    # features_df = fe.create_continuous_feature_interaction(
+    #     logger, combined_df, features_df, cont_features
+    # )
 
-    # This is going to be huge. Dropping for now
-    features_df = fe.create_ploynomial_features(
-        logger, combined_df, features_df, cont_feature
-    )
+    # # This is going to be huge. Dropping for now
+    # features_df = fe.create_ploynomial_features(
+    #     logger, combined_df, features_df, cont_feature
+    # )
 
     logger.info(f"Shape of the generated features {features_df.shape}")
     logger.info(f"Name of the features generated {list(features_df.columns)}")
