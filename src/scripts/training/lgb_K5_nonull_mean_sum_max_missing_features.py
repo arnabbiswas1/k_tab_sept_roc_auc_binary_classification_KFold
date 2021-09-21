@@ -1,5 +1,5 @@
 """
-LGB benchmark KFold-5, non-null, all features
+"LGB,K5,non-null,mean,sum,max, null_skew"
 """
 
 import os
@@ -22,10 +22,10 @@ RUN_ID = datetime.now().strftime("%m%d_%H%M")
 MODEL_NAME = os.path.basename(__file__).split(".")[0]
 
 SEED = 42
-EXP_DETAILS = "LGB benchmark KFold-5, non-null, all features"
+EXP_DETAILS = "LGB,K5,non-null,mean,sum,max, null_skew"
 
 TARGET = "claim"
-N_SPLIT = 3
+N_SPLIT = 5
 
 MODEL_TYPE = "lgb"
 OBJECTIVE = "binary"
@@ -76,27 +76,28 @@ train_df, test_df, sample_submission_df = process_data.read_processed_data(
     sample_submission=True,
 )
 
-features_df = pd.read_parquet(f"{constants.FEATURES_DATA_DIR}/all_combined.parquet")
+combined_df = pd.concat([train_df.drop(TARGET, axis=1), test_df])
+
+features_df = pd.read_parquet(f"{constants.FEATURES_DATA_DIR}/features_row_wise_stat.parquet")
+features_to_use = ["no_null", "mean", "sum", "max"]
+
+features_df = features_df[features_to_use]
+combined_df = pd.concat([combined_df, features_df], axis=1)
+
+features_df = pd.read_parquet(f"{constants.FEATURES_DATA_DIR}/features_missingness.parquet")
+features_df = features_df["null_skew"]
+combined_df = pd.concat([combined_df, features_df], axis=1)
 
 target = train_df[TARGET]
 
-# train_df = features_df.loc[train_df.index]
-# train_df[TARGET] = target
+train_df = combined_df.loc[train_df.index]
+train_df[TARGET] = target
 
-# test_df = features_df.loc[test_df.index]
+test_df = combined_df.loc[test_df.index]
 
-train_index = train_df.index
-test_index = test_df.index
-
-del train_df, test_df
-common.trigger_gc(logger)
-
-train_X = features_df.loc[train_index]
-train_Y = target
-test_X = features_df.loc[test_index]
-
-del features_df, target
-common.trigger_gc(logger)
+train_X = train_df.drop([TARGET], axis=1)
+train_Y = train_df[TARGET]
+test_X = test_df
 
 logger.info(
     f"Shape of train_X : {train_X.shape}, test_X: {test_X.shape}, train_Y: {train_Y.shape}"
@@ -126,9 +127,12 @@ results_dict = model.lgb_train_validate_on_cv(
     early_stopping_rounds=EARLY_STOPPING_ROUNDS,
     cat_features="auto",
     verbose_eval=100,
+    retrain=False
 )
 
 common.update_tracking(RUN_ID, "lb_score", 0, is_integer=True)
+
+train_index = train_df.index
 
 common.save_artifacts(
     logger,

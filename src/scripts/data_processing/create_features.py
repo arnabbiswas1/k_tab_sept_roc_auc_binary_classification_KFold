@@ -13,7 +13,7 @@ def main():
     logger.info("Starting to generate features")
 
     TARGET = "claim"
-    FEATURE_FILE_NAME = "features_row_wise_stat_extra.parquet"
+    FEATURE_FILE_NAME = "features_missingness.parquet"
 
     train_df, test_df, _ = process_data.read_processed_data(
         logger,
@@ -49,6 +49,10 @@ def main():
     logger.info(f"Continous features {cont_features}")
 
     features_df = pd.DataFrame()
+
+    features_df = fe.create_missingness_features(
+        logger, combined_df, features_df, all_features
+    )
 
     features_df = fe.create_row_wise_stat_features(
         logger, combined_df, features_df, all_features
@@ -90,6 +94,8 @@ def main():
     # features_df = fe.create_ploynomial_features(
     #     logger, combined_df, features_df, cont_feature
     # )
+
+    features_df = process_data.reduce_memory_usage(logger=logger, df=features_df, verbose=True)
 
     logger.info(f"Shape of the generated features {features_df.shape}")
     logger.info(f"Name of the features generated {list(features_df.columns)}")

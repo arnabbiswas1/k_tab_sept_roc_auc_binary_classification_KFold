@@ -1,5 +1,5 @@
 """
-LGB benchmark KFold-5, non-null, all features
+"LGB,K5,non-null,mean,sum,max,bin features from k"
 """
 
 import os
@@ -22,10 +22,10 @@ RUN_ID = datetime.now().strftime("%m%d_%H%M")
 MODEL_NAME = os.path.basename(__file__).split(".")[0]
 
 SEED = 42
-EXP_DETAILS = "LGB benchmark KFold-5, non-null, all features"
+EXP_DETAILS = "LGB,K5,non-null,mean,sum,max,bin features from k"
 
 TARGET = "claim"
-N_SPLIT = 3
+N_SPLIT = 5
 
 MODEL_TYPE = "lgb"
 OBJECTIVE = "binary"
@@ -69,34 +69,58 @@ common.update_tracking(RUN_ID, "num_leaves", NUM_LEAVES)
 common.update_tracking(RUN_ID, "early_stopping_rounds", EARLY_STOPPING_ROUNDS)
 
 train_df, test_df, sample_submission_df = process_data.read_processed_data(
-    logger,
-    constants.PROCESSED_DATA_DIR,
-    train=True,
-    test=True,
-    sample_submission=True,
+    logger, constants.PROCESSED_DATA_DIR, train=True, test=True, sample_submission=True,
 )
 
-features_df = pd.read_parquet(f"{constants.FEATURES_DATA_DIR}/all_combined.parquet")
+train_df["f5_bin"] = train_df["f5"].apply(lambda x: 0 if x <= 0.05 else 1)
+train_df["f29_bin"] = train_df["f29"].apply(lambda x: 0 if x <= 0.5 else 1)
+train_df["f40_bin"] = train_df["f40"].apply(lambda x: 0 if x <= 0.5 else 1)
+train_df["f42_bin"] = train_df["f42"].apply(
+    lambda x: 0 if x <= 0.3 else 1 if x > 0.3 and x <= 0.8 else 2
+)
+train_df["f50_bin"] = train_df["f50"].apply(lambda x: 0 if x <= 0.05 else 1)
+train_df["f65_bin"] = train_df["f65"].apply(lambda x: 0 if x <= 50000 else 1)
+train_df["f70_bin"] = train_df["f70"].apply(lambda x: 0 if x <= 0.5 else 1)
+train_df["f74_bin"] = train_df["f74"].apply(lambda x: 0 if x <= 3e12 else 1)
+train_df["f75_bin"] = train_df["f75"].apply(lambda x: 0 if x <= 0.5 else 1)
+train_df["f91_bin"] = train_df["f91"].apply(lambda x: 0 if x <= 0.05 else 1)
+
+test_df["f5_bin"] = test_df["f5"].apply(lambda x: 0 if x <= 0.05 else 1)
+test_df["f29_bin"] = test_df["f29"].apply(lambda x: 0 if x <= 0.5 else 1)
+test_df["f40_bin"] = test_df["f40"].apply(lambda x: 0 if x <= 0.5 else 1)
+test_df["f42_bin"] = test_df["f42"].apply(
+    lambda x: 0 if x <= 0.3 else 1 if x > 0.3 and x <= 0.8 else 2
+)
+test_df["f50_bin"] = test_df["f50"].apply(lambda x: 0 if x <= 0.05 else 1)
+test_df["f65_bin"] = test_df["f65"].apply(lambda x: 0 if x <= 50000 else 1)
+test_df["f70_bin"] = test_df["f70"].apply(lambda x: 0 if x <= 0.5 else 1)
+test_df["f74_bin"] = test_df["f74"].apply(lambda x: 0 if x <= 3e12 else 1)
+test_df["f75_bin"] = test_df["f75"].apply(lambda x: 0 if x <= 0.5 else 1)
+test_df["f91_bin"] = test_df["f91"].apply(lambda x: 0 if x <= 0.05 else 1)
+
+combined_df = pd.concat([train_df.drop(TARGET, axis=1), test_df])
+
+features_df = pd.read_parquet(
+    f"{constants.FEATURES_DATA_DIR}/features_row_wise_stat.parquet"
+)
+features_to_use = ["no_null", "mean", "sum", "max"]
+
+features_df = features_df[features_to_use]
+combined_df = pd.concat([combined_df, features_df], axis=1)
+
+# features_to_drop = ["f40"]
+# combined_df = combined_df.drop(features_to_drop, axis=1)
 
 target = train_df[TARGET]
 
-# train_df = features_df.loc[train_df.index]
-# train_df[TARGET] = target
+train_df = combined_df.loc[train_df.index]
+train_df[TARGET] = target
 
-# test_df = features_df.loc[test_df.index]
+test_df = combined_df.loc[test_df.index]
 
-train_index = train_df.index
-test_index = test_df.index
-
-del train_df, test_df
-common.trigger_gc(logger)
-
-train_X = features_df.loc[train_index]
-train_Y = target
-test_X = features_df.loc[test_index]
-
-del features_df, target
-common.trigger_gc(logger)
+train_X = train_df.drop([TARGET], axis=1)
+train_Y = train_df[TARGET]
+test_X = test_df
 
 logger.info(
     f"Shape of train_X : {train_X.shape}, test_X: {test_X.shape}, train_Y: {train_Y.shape}"
@@ -126,9 +150,12 @@ results_dict = model.lgb_train_validate_on_cv(
     early_stopping_rounds=EARLY_STOPPING_ROUNDS,
     cat_features="auto",
     verbose_eval=100,
+    retrain=False,
 )
 
 common.update_tracking(RUN_ID, "lb_score", 0, is_integer=True)
+
+train_index = train_df.index
 
 common.save_artifacts(
     logger,

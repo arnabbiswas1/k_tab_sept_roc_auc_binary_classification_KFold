@@ -1,5 +1,5 @@
 """
-LGB benchmark KFold-5, non-null, all features
+LGB K5, non-null, f40_square
 """
 
 import os
@@ -22,10 +22,10 @@ RUN_ID = datetime.now().strftime("%m%d_%H%M")
 MODEL_NAME = os.path.basename(__file__).split(".")[0]
 
 SEED = 42
-EXP_DETAILS = "LGB benchmark KFold-5, non-null, all features"
+EXP_DETAILS = "LGB K5, non-null, f40_square"
 
 TARGET = "claim"
-N_SPLIT = 3
+N_SPLIT = 5
 
 MODEL_TYPE = "lgb"
 OBJECTIVE = "binary"
@@ -90,6 +90,9 @@ test_index = test_df.index
 
 del train_df, test_df
 common.trigger_gc(logger)
+
+features_to_keep = ["f40_square"]
+features_df = features_df[features_to_keep]
 
 train_X = features_df.loc[train_index]
 train_Y = target

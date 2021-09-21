@@ -28,7 +28,9 @@ __all__ = [
     "get_group_stat",
     "get_rare_categories",
     "create_rare_category",
-    ]
+    "create_missingness_features",
+    "create_bins"
+]
 
 
 def calc_percentile(x, percentile):
@@ -51,6 +53,137 @@ def nan_ptp(x):
     return np.nanmax(x) - np.nanmin(x)
 
 
+def create_missingness_features(logger, source_df, target_df, features):
+    """
+    Create different types of features based on the presence of holes
+    (missing data) in the source_df
+    """
+    target_df["no_null"] = source_df[features].isna().sum(axis=1)
+    target_df["null_mean"] = source_df[features].isna().mean(axis=1)
+    target_df["null_std"] = source_df[features].isna().std(axis=1)
+    target_df["null_var"] = source_df[features].isna().var(axis=1)
+    target_df["null_skew"] = source_df[features].isna().skew(axis=1)
+    target_df["null_kurt"] = source_df[features].isna().kurt(axis=1)
+    target_df["null_sem"] = source_df[features].isna().sem(axis=1)
+
+    # Frequency mapping for the number of nulls per row
+    freq_map_dict = source_df.isna().sum(axis=1).value_counts(dropna=False)
+    target_df["null_sum_freq"] = (
+        source_df.isna().sum(axis=1).map(freq_map_dict).astype(np.int32)
+    )
+
+    return target_df
+
+
+def create_bins(logger, combined_df):
+    combined_df["f2_bin"] = pd.cut(
+        combined_df.f2,
+        bins=[combined_df.f2.min(), 0.025, combined_df.f2.max()],
+        labels=[0, 1],
+    )
+    combined_df["f5_bin"] = pd.cut(
+        combined_df.f5,
+        bins=[combined_df.f5.min(), 0.05, combined_df.f5.max()],
+        labels=[0, 1],
+    )
+    combined_df["f11_bin"] = pd.cut(
+        combined_df.f11,
+        bins=[combined_df.f11.min(), 0, combined_df.f11.max()],
+        labels=[0, 1],
+    )
+    combined_df["f13_bin"] = pd.cut(
+        combined_df.f13,
+        bins=[combined_df.f13.min(), 0.04, combined_df.f13.max()],
+        labels=[0, 1],
+    )
+    combined_df["f18_bin"] = pd.cut(
+        combined_df.f18,
+        bins=[
+            combined_df.f18.min(),
+            0.2,
+            1.2,
+            2.1,
+            3.1,
+            4.15,
+            5.25,
+            combined_df.f18.max(),
+        ],
+        labels=[0, 1, 2, 3, 4, 5, 6],
+    )
+    combined_df["f23_bin"] = pd.cut(
+        combined_df.f23,
+        bins=[combined_df.f23.min(), 4, combined_df.f23.max()],
+        labels=[0, 1],
+    )
+    combined_df["f24_bin"] = pd.cut(
+        combined_df.f24,
+        bins=[combined_df.f24.min(), 0.05, combined_df.f24.max()],
+        labels=[0, 1],
+    )
+    combined_df["f26_bin"] = pd.cut(
+        combined_df.f26,
+        bins=[combined_df.f26.min(), 10000000000000, combined_df.f26.max()],
+        labels=[0, 1],
+    )
+    combined_df["f29_bin"] = pd.cut(
+        combined_df.f29,
+        bins=[combined_df.f29.min(), 0.03, 0.115, combined_df.f29.max()],
+        labels=[0, 1, 2],
+    )
+    combined_df["f31_bin"] = pd.cut(
+        combined_df.f31,
+        bins=[combined_df.f31.min(), -0.03, 0.03, combined_df.f31.max()],
+        labels=[0, 1, 2],
+    )
+    combined_df["f40_bin"] = pd.cut(
+        combined_df.f40,
+        bins=[combined_df.f40.min(), 0.04, 0.14, 0.936, combined_df.f40.max()],
+        labels=[0, 1, 2, 3],
+    )
+    combined_df["f42_bin"] = pd.cut(
+        combined_df.f42,
+        bins=[combined_df.f42.min(), 0.03, 0.16, 0.62, 0.935, combined_df.f42.max()],
+        labels=[0, 1, 2, 3, 4],
+    )
+    combined_df["f47_bin"] = pd.cut(
+        combined_df.f47,
+        bins=[combined_df.f47.min(), 0, combined_df.f47.max()],
+        labels=[0, 1],
+    )
+    combined_df["f49_bin"] = pd.cut(
+        combined_df.f49,
+        bins=[combined_df.f49.min(), -0.035, 0.04, combined_df.f49.max()],
+        labels=[0, 1, 2],
+    )
+    combined_df["f50_bin"] = pd.cut(
+        combined_df.f50,
+        bins=[combined_df.f50.min(), 0.02, combined_df.f50.max()],
+        labels=[0, 1],
+    )
+    combined_df["f55_bin"] = pd.cut(
+        combined_df.f55,
+        bins=[combined_df.f55.min(), 0.035, combined_df.f55.max()],
+        labels=[0, 1],
+    )
+    combined_df["f56_bin"] = pd.cut(
+        combined_df.f56,
+        bins=[combined_df.f56.min(), 0.226, 0.464, 0.68, 0.862, combined_df.f56.max()],
+        labels=[0, 1, 2, 3, 4],
+    )
+    combined_df["f58_bin"] = pd.cut(
+        combined_df.f58,
+        bins=[combined_df.f58.min(), -0.964, combined_df.f58.max()],
+        labels=[0, 1],
+    )
+
+    combined_df["f70_bin"] = pd.cut(
+        combined_df.f70,
+        bins=[combined_df.f70.min(), 0.5, combined_df.f70.max()],
+        labels=[0, 1],
+    )
+    return combined_df
+
+
 def create_row_wise_stat_features(logger, source_df, target_df, features):
     """Returns features based on the statistics for each row
     """
@@ -66,7 +199,6 @@ def create_row_wise_stat_features(logger, source_df, target_df, features):
     target_df["med"] = source_df[features].median(axis=1)
     target_df["notna_ptp"] = source_df[features].apply(np.ptp, axis=1)
     target_df["na_ptp"] = source_df[features].apply(lambda x: nan_ptp(x), axis=1)
-    target_df["no_null"] = source_df[features].isna().sum(axis=1)
     target_df["abs_sum"] = source_df[features].abs().sum(axis=1)
     target_df["sem"] = source_df[features].sem(axis=1)
 
@@ -161,7 +293,7 @@ def create_ploynomial_features(logger, source_df, target_df, features, degree=2)
     # Create a DF from the generated features
     df_transformed = pd.DataFrame(ploy_features, columns=feature_names)
     # Drop the first few features sinces those are the original ones
-    df_transformed = df_transformed.iloc[:, len(features):]
+    df_transformed = df_transformed.iloc[:, len(features) :]
     # Append to the target DF
     target_df = pd.concat([target_df, df_transformed], axis=1)
     return target_df

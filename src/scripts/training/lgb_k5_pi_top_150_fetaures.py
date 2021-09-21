@@ -1,5 +1,5 @@
 """
-LGB benchmark KFold-5, non-null, all features
+LGB K5, pi top 118 features
 """
 
 import os
@@ -22,10 +22,10 @@ RUN_ID = datetime.now().strftime("%m%d_%H%M")
 MODEL_NAME = os.path.basename(__file__).split(".")[0]
 
 SEED = 42
-EXP_DETAILS = "LGB benchmark KFold-5, non-null, all features"
+EXP_DETAILS = "LGB K5, pi top 118 features"
 
 TARGET = "claim"
-N_SPLIT = 3
+N_SPLIT = 5
 
 MODEL_TYPE = "lgb"
 OBJECTIVE = "binary"
@@ -69,11 +69,7 @@ common.update_tracking(RUN_ID, "num_leaves", NUM_LEAVES)
 common.update_tracking(RUN_ID, "early_stopping_rounds", EARLY_STOPPING_ROUNDS)
 
 train_df, test_df, sample_submission_df = process_data.read_processed_data(
-    logger,
-    constants.PROCESSED_DATA_DIR,
-    train=True,
-    test=True,
-    sample_submission=True,
+    logger, constants.PROCESSED_DATA_DIR, train=True, test=True, sample_submission=True,
 )
 
 features_df = pd.read_parquet(f"{constants.FEATURES_DATA_DIR}/all_combined.parquet")
@@ -90,6 +86,12 @@ test_index = test_df.index
 
 del train_df, test_df
 common.trigger_gc(logger)
+
+pi_df = pd.read_csv(f"{constants.FI_DIR}/pi_summarized_lgb_perm_imp_all_features_0916_1901.csv")
+
+features_to_keep = list(pi_df.feature[0:118])
+
+features_df = features_df[features_to_keep]
 
 train_X = features_df.loc[train_index]
 train_Y = target
@@ -126,6 +128,7 @@ results_dict = model.lgb_train_validate_on_cv(
     early_stopping_rounds=EARLY_STOPPING_ROUNDS,
     cat_features="auto",
     verbose_eval=100,
+    retrain=True
 )
 
 common.update_tracking(RUN_ID, "lb_score", 0, is_integer=True)
