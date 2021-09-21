@@ -29,7 +29,6 @@ N_SPLIT = 5
 
 MODEL_TYPE = "cat"
 BOOSTING_TYPE = "Plain"
-#OBJECTIVE = "CrossEntropy"
 OBJECTIVE = "Logloss"
 EVAL_METRIC = "AUC"
 N_ESTIMATORS = 10000
