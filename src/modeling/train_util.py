@@ -32,7 +32,8 @@ __all__ = [
     "_calculate_perf_metric",
     "f1_score_weighted",
     "evaluate_macroF1_lgb_sklearn_api",
-    "_get_X_Y_from_CV"
+    "_get_X_Y_from_CV",
+    "lgb_train_validate_on_cv_mean_encoding"
 ]
 
 
@@ -166,7 +167,7 @@ def _get_random_seeds(i):
     returns 10 seeds
     """
     seed_list = [42, 103, 13, 31, 17, 23, 46, 57, 83, 93]
-    return seed_list[i-1]
+    return seed_list[i - 1]
 
 
 def _get_x_y_from_data(logger, df, predictors, target):
@@ -1077,7 +1078,205 @@ def lgb_train_validate_on_cv(
         # )
         if retrain:
             params["seed"] = _get_random_seeds(fold)
-            logger.info(f"Retraining the model with seed [{params['seed']}] on full data")
+            logger.info(
+                f"Retraining the model with seed [{params['seed']}] on full data"
+            )
+            if log_target:
+                lgb_train = lgb.Dataset(train_X, np.log1p(train_Y))
+            else:
+                lgb_train = lgb.Dataset(train_X, train_Y)
+
+            if feval:
+                # For custom metric. metric should be set to "custom" in parameters
+                model = lgb.train(
+                    params,
+                    lgb_train,
+                    num_boost_round=model.best_iteration,
+                    feature_name=features,
+                    categorical_feature=cat_features,
+                    feval=feval,
+                )
+            else:
+                model = lgb.train(
+                    params,
+                    lgb_train,
+                    num_boost_round=model.best_iteration,
+                    feature_name=features,
+                    categorical_feature=cat_features,
+                )
+
+        if test_X is not None:
+            if log_target:
+                y_predicted += np.expm1(
+                    model.predict(test_X.values, num_iteration=model.best_iteration)
+                )
+            else:
+                y_predicted += model.predict(
+                    test_X.values, num_iteration=model.best_iteration
+                )
+                logger.info(f"y_predicted {y_predicted}")
+
+    result_dict = _evaluate_and_log(
+        logger,
+        run_id,
+        train_Y,
+        y_oof,
+        y_predicted,
+        metric,
+        n_folds,
+        result_dict,
+        cv_scores,
+        best_iterations,
+    )
+
+    del y_oof
+    gc.collect()
+
+    result_dict = _capture_feature_importance(
+        feature_importance, n_important_features=10, result_dict=result_dict
+    )
+
+    logger.info("Training/Prediction completed!")
+    return result_dict
+
+
+def lgb_train_validate_on_cv_mean_encoding(
+    logger,
+    run_id,
+    train_X,
+    train_Y,
+    test_X,
+    metric,
+    kf,
+    features,
+    params={},
+    n_estimators=1000,
+    early_stopping_rounds=100,
+    cat_features="auto",
+    verbose_eval=100,
+    num_class=None,
+    log_target=False,
+    retrain=False,
+    feval=None,
+    target_val=None,
+    cat_enc_cols=None,
+):
+    """Train a LightGBM model, validate using cross validation. If `test_X` has
+    a valid value, creates a new model with number of best iteration found during
+    holdout phase using training as well as validation data.
+
+    startify_by_labels: Used as the label for StartifiedKFold on top of continous
+    variables
+    """
+    cv_scores = []
+    result_dict = {}
+    feature_importance = pd.DataFrame()
+    best_iterations = []
+
+    if num_class:
+        # This should be true for multiclass classification problems
+        y_oof = np.zeros(shape=(len(train_X), num_class))
+        y_predicted = np.zeros(shape=(len(test_X), num_class))
+    else:
+        y_oof = np.zeros(shape=(len(train_X)))
+        y_predicted = np.zeros(shape=(len(test_X)))
+
+    for col in cat_enc_cols:
+        features = features + [f"{col}_m_enc"]
+
+    fold = 0
+    n_folds = kf.get_n_splits()
+    for train_index, validation_index in kf.split(X=train_X, y=train_Y):
+        fold += 1
+        logger.info(f"fold {fold} of {n_folds}")
+
+        if num_class:
+            logger.info(f"Number of classes in target {train_Y.nunique()}")
+
+        X_train, X_validation, y_train, y_validation = _get_X_Y_DF_from_CV(
+            train_X, train_Y, train_index, validation_index
+        )
+
+        for col in cat_enc_cols:
+            # create dict of category:mean target
+            X_temp = pd.concat([X_train, y_train], axis=1)
+            mapping_dict = dict(X_temp.groupby(col)[target_val].mean())
+            X_train[f"{col}_m_enc"] = X_train[col].map(mapping_dict)
+            X_validation[f"{col}_m_enc"] = X_validation[col].map(mapping_dict)
+            test_X[f"{col}_m_enc"] = test_X[col].map(mapping_dict)
+
+        if log_target:
+            lgb_train = lgb.Dataset(X_train, np.log1p(y_train))
+            lgb_eval = lgb.Dataset(
+                X_validation, np.log1p(y_validation), reference=lgb_train
+            )
+        else:
+            lgb_train = lgb.Dataset(X_train, y_train)
+            lgb_eval = lgb.Dataset(X_validation, y_validation, reference=lgb_train)
+
+        if feval:
+            # For custom metric. metric should be set to "custom" in parameters
+            model = lgb.train(
+                params,
+                lgb_train,
+                valid_sets=[lgb_train, lgb_eval],
+                verbose_eval=verbose_eval,
+                early_stopping_rounds=early_stopping_rounds,
+                num_boost_round=n_estimators,
+                feature_name=features,
+                categorical_feature=cat_features,
+                feval=feval,
+            )
+        else:
+            model = lgb.train(
+                params,
+                lgb_train,
+                valid_sets=[lgb_train, lgb_eval],
+                verbose_eval=verbose_eval,
+                early_stopping_rounds=early_stopping_rounds,
+                num_boost_round=n_estimators,
+                feature_name=features,
+                categorical_feature=cat_features,
+            )
+
+        del lgb_train, lgb_eval, train_index, X_train, y_train
+        gc.collect()
+
+        if log_target:
+            y_oof[validation_index] = np.expm1(
+                model.predict(X_validation, num_iteration=model.best_iteration)
+            )
+        else:
+            y_oof[validation_index] = model.predict(
+                X_validation, num_iteration=model.best_iteration
+            )
+
+        best_iteration = model.best_iteration
+        best_iterations.append(best_iteration)
+        logger.info(f"Best number of iterations for fold {fold} is: {best_iteration}")
+
+        cv_oof_score = _calculate_perf_metric(
+            metric, y_validation, y_oof[validation_index]
+        )
+        cv_scores.append(cv_oof_score)
+        logger.info(f"CV OOF Score for fold {fold} is {cv_oof_score}")
+
+        del validation_index, X_validation, y_validation
+        gc.collect()
+
+        feature_importance_on_fold = model.feature_importance()
+        feature_importance = _capture_feature_importance_on_fold(
+            feature_importance, features, feature_importance_on_fold, fold
+        )
+
+        # util.update_tracking(
+        #     run_id, f"metric_fold_{fold}", cv_oof_score, is_integer=False
+        # )
+        if retrain:
+            params["seed"] = _get_random_seeds(fold)
+            logger.info(
+                f"Retraining the model with seed [{params['seed']}] on full data"
+            )
             if log_target:
                 lgb_train = lgb.Dataset(train_X, np.log1p(train_Y))
             else:
@@ -1407,7 +1606,7 @@ def cat_train_validate_on_cv(
 
 
 def sklearn_train_validate_on_cv(
-    logger, run_id, sklearn_model, train_X, train_Y, test_X, kf, features,
+    logger, run_id, sklearn_model, train_X, train_Y, test_X, kf, features, metric
 ):
     """
     Features should be a list
@@ -1436,16 +1635,18 @@ def sklearn_train_validate_on_cv(
 
         del X_train, y_train
 
-        cv_oof_score = _calculate_perf_metric(y_validation, y_oof[validation_index])
+        cv_oof_score = _calculate_perf_metric(
+            metric, y_validation, y_oof[validation_index]
+        )
         cv_scores.append(cv_oof_score)
         logger.info(f"CV OOF Score for fold {fold} is {cv_oof_score}")
 
         del validation_index, X_validation, y_validation
         gc.collect()
 
-        util.update_tracking(
-            run_id, "metric_fold_{}".format(fold), cv_oof_score, is_integer=False
-        )
+        # util.update_tracking(
+        #     run_id, "metric_fold_{}".format(fold), cv_oof_score, is_integer=False
+        # )
 
     result_dict = _evaluate_and_log(
         logger,
@@ -1453,6 +1654,7 @@ def sklearn_train_validate_on_cv(
         train_Y,
         y_oof,
         y_predicted,
+        metric,
         n_folds,
         result_dict,
         cv_scores,

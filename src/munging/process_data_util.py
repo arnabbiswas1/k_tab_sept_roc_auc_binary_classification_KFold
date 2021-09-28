@@ -8,7 +8,8 @@ __all__ = [
     "change_dtype",
     "map_variable",
     "merge_df",
-    "reduce_memory_usage"
+    "reduce_memory_usage",
+    "remove_normal_outlier"
 ]
 
 
@@ -177,3 +178,14 @@ def reduce_memory_usage(logger, df, verbose=True):
             )
         )
     return df
+
+
+def remove_normal_outlier(feature_name, source_df, target_df):
+    col_mean = source_df[feature_name].mean()
+    col_std = source_df[feature_name].std()
+
+    upper_limit = (col_mean + 3 * col_std)
+    lower_limit = (col_mean - 3 * col_std)
+
+    target_df[feature_name] = source_df[feature_name].clip(lower=lower_limit, upper=upper_limit)
+    return target_df
