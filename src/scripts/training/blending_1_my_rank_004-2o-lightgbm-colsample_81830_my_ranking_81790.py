@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     # Giving more importnace to external submission
     sample_submission_df.claim = (
-        0.5 * df_1.claim + 0.5 * df_2.claim
+        0.3 * df_1.claim + 0.7 * df_2.claim
     ).values
 
     file_name = f"sub_{MODEL_NAME}_{RUN_ID}.csv"

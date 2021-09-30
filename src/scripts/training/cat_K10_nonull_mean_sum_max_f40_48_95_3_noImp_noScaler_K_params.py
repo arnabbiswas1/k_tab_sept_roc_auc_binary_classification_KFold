@@ -146,6 +146,7 @@ results_dict = model.cat_train_validate_on_cv(
     kf=kfold,
     features=predictors,
     params=cat_params,
+    cat_features=["no_null", "f40_bin"]
 )
 
 common.update_tracking(RUN_ID, "lb_score", 0, is_integer=True)

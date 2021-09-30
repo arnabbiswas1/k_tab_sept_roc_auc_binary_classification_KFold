@@ -142,8 +142,8 @@ logger.info(
     f"Shape of submission and oof file {sub_7_test_pred.shape}, {sub_7_oof_pred.shape}"
 )
 
-sub_8_predition_name = "sub_lgb_K10_nonull_mean_sum_max_40_48_95_3_no_imp_no_scaler_params_K_0927_2311_0.81622.gz"
-sub_8_oof_name = "oof_lgb_K10_nonull_mean_sum_max_40_48_95_3_no_imp_no_scaler_params_K_0927_2311_0.81622.csv"
+sub_8_predition_name = "sub_lgb_K10_nonull_mean_sum_max_40_48_95_3_no_imp_no_scaler_params_K_0928_1834_0.81627.gz"
+sub_8_oof_name = "oof_lgb_K10_nonull_mean_sum_max_40_48_95_3_no_imp_no_scaler_params_K_0928_1834_0.81627.csv"
 
 sub_8_test_pred = pd.read_csv(f"{constants.SUBMISSION_DIR}/{sub_8_predition_name}")
 sub_8_oof_pred = pd.read_csv(f"{constants.OOF_DIR}/{sub_8_oof_name}")

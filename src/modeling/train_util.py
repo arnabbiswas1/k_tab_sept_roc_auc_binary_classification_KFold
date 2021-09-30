@@ -33,7 +33,7 @@ __all__ = [
     "f1_score_weighted",
     "evaluate_macroF1_lgb_sklearn_api",
     "_get_X_Y_from_CV",
-    "lgb_train_validate_on_cv_mean_encoding"
+    "lgb_train_validate_on_cv_mean_encoding",
 ]
 
 
@@ -1519,16 +1519,30 @@ def cat_train_validate_on_cv(
         if log_target:
             # feature_names accepts only list
             cat_train = Pool(
-                data=X_train, label=np.log1p(y_train), feature_names=features,
+                data=X_train,
+                label=np.log1p(y_train),
+                feature_names=features,
+                cat_features=cat_features,
             )
             cat_eval = Pool(
-                data=X_validation, label=np.log1p(y_validation), feature_names=features,
+                data=X_validation,
+                label=np.log1p(y_validation),
+                feature_names=features,
+                cat_features=cat_features,
             )
         else:
             # feature_names accepts only list
-            cat_train = Pool(data=X_train, label=y_train, feature_names=features,)
+            cat_train = Pool(
+                data=X_train,
+                label=y_train,
+                feature_names=features,
+                cat_features=cat_features,
+            )
             cat_eval = Pool(
-                data=X_validation, label=y_validation, feature_names=features,
+                data=X_validation,
+                label=y_validation,
+                feature_names=features,
+                cat_features=cat_features,
             )
 
         model = CatBoost(params=params)

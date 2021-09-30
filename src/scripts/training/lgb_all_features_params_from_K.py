@@ -48,7 +48,7 @@ lgb_params = {
     "n_jobs": N_THREADS,
     "seed": SEED,
     # "max_depth": MAX_DEPTH,
-    "metric": METRIC,
+    # "metric": METRIC,
     "verbose": -1,
 
     'subsample': 0.6,

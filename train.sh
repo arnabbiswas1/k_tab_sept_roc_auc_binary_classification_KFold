@@ -1,2 +1,3 @@
-python -m src.scripts.training.lgb_K10_nonull_mean_sum_max_40_48_95_3_mean_imp_no_scaler_params_K
-python -m src.scripts.training.lgb_K10_nonull_mean_sum_max_40_48_95_3_no_imp_no_scaler_params_K
+python -m src.scripts.training.xgb_K10_nonull_mean_sum_max_f40_48_95_3_mean_median_imp_StScaler_K_params
+python -m src.scripts.training.cat_K10_nonull_mean_sum_max_f40_48_95_3_mean_medain_RobScaler_K_params
+

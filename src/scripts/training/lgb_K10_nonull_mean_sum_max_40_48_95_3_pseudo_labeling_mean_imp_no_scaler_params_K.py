@@ -35,7 +35,7 @@ OBJECTIVE = "binary"
 BOOSTING_TYPE = "gbdt"
 METRIC = "auc"
 VERBOSE = 100
-N_THREADS = 8
+N_THREADS = 6
 NUM_LEAVES = 6
 MAX_DEPTH = 2
 N_ESTIMATORS = 20000
@@ -51,16 +51,15 @@ lgb_params = {
     "n_jobs": N_THREADS,
     "seed": SEED,
     # "max_depth": MAX_DEPTH,
-    "metric": METRIC,
+    # "metric": METRIC,
     "verbose": -1,
-
-    'subsample': 0.6,
-    'subsample_freq': 1,
-    'colsample_bytree': 0.4,
-    'reg_alpha': 10.0,
-    'reg_lambda': 1e-1,
-    'min_child_weight': 256,
-    'min_child_samples': 20,
+    "subsample": 0.6,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.4,
+    "reg_alpha": 10.0,
+    "reg_lambda": 1e-1,
+    "min_child_weight": 256,
+    "min_child_samples": 20,
 }
 
 LOGGER_NAME = "sub_1"
@@ -80,6 +79,8 @@ train_df, test_df, sample_submission_df = process_data.read_processed_data(
     logger, constants.PROCESSED_DATA_DIR, train=True, test=True, sample_submission=True,
 )
 
+target = train_df[TARGET]
+
 combined_df = pd.concat([train_df.drop(TARGET, axis=1), test_df])
 
 features_df = pd.read_parquet(
@@ -90,9 +91,8 @@ features_to_use = ["no_null", "mean", "sum", "max"]
 
 features_df = features_df[features_to_use]
 combined_df = pd.concat([combined_df, features_df], axis=1)
-predictors = list(combined_df.columns)
 
-combined_df[predictors] = combined_df[predictors].fillna(combined_df[predictors].mean())
+logger.info(f"Shape of the combined_df + features {combined_df.shape}")
 
 combined_df["f40_bin"] = pd.cut(
     combined_df.f40,
@@ -108,11 +108,23 @@ combined_df["f95_log"] = np.log1p(
 
 combined_df["f3_cbrt"] = np.cbrt(combined_df["f3"])
 
+predictors = list(combined_df.columns)
+
+combined_df[predictors] = combined_df[predictors].fillna(combined_df[predictors].mean())
+
+logger.info(f"Shape of the combined_df {combined_df.shape}")
+
+train_df = combined_df.loc[train_df.index]
+test_df = combined_df.loc[test_df.index]
+train_df[TARGET] = target
+
 # Create pseudo labels
 early_prediction_df = pd.read_csv(
-    f"{constants.SUBMISSION_DIR}/sub_lgb_K5_nonull_mean_sum_max_tsne_0917_1621_0.81337.gz",
+    f"{constants.SUBMISSION_DIR}/sub_lgb_K10_nonull_mean_sum_max_40_48_95_3_mean_imp_no_scaler_params_K_0928_1536_0.81645.gz",
     index_col="id",
 )
+
+logger.info(f"Shape of the early_prediction_df {early_prediction_df.shape}")
 
 test_2_df = early_prediction_df[
     (early_prediction_df[TARGET] <= 0.1) | (early_prediction_df[TARGET] >= 0.9)
@@ -122,6 +134,8 @@ test_2_df.loc[test_2_df[TARGET] < 0.5, TARGET] = 0
 
 train_2_df = test_df.loc[test_2_df.index]
 train_2_df[TARGET] = test_2_df[TARGET]
+
+logger.info(f"Shape of the pseudo labels {train_2_df.shape}")
 
 train_df = pd.concat([train_df, train_2_df], axis=0)
 train_df = train_df.reset_index(drop=True)
@@ -160,7 +174,7 @@ results_dict = model.lgb_train_validate_on_cv_mean_encoding(
     verbose_eval=100,
     retrain=False,
     target_val="claim",
-    cat_enc_cols=["no_null"]
+    cat_enc_cols=["no_null"],
 )
 
 common.update_tracking(RUN_ID, "lb_score", 0, is_integer=True)
